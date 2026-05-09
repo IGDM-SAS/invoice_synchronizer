@@ -82,7 +82,7 @@ class SystemConfig:
         pirpos_config = PirposConfig(
             pirpos_username=os.environ["PIRPOS_USER_NAME"],
             pirpos_password=os.environ["PIRPOS_PASSWORD"],
-            batch_size=int(os.environ.get("PIRPOS_BATCH_SIZE", 100)),
+            batch_size=int(os.environ.get("PIRPOS_BATCH_SIZE", 1000)),
             default_user=self.default_user,
             system_mapping=self.system_config,
         )
