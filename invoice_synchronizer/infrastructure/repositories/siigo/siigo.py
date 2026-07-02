@@ -205,6 +205,9 @@ class SiigoConnector(PlatformConnector):
             page += 1
         return clients
 
+    def get_clients_by_pattern(self, pattern: str) -> List[User]:
+        raise NotImplementedError("get_clients_by_pattern is not implemented for SiigoConnector.")
+
     def create_client(self, client: User) -> None:
         """Create client.
 
