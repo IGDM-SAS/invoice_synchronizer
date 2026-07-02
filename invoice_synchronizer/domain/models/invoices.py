@@ -139,3 +139,80 @@ class Invoice(BaseModel):
         )
 
         return hash(hash_tuple)
+
+    def equals_soft(
+        self,
+        other,
+        total_tolerance_pct: float = 0.0,
+        taxes_tolerance_pct: float = 0.0,
+    ) -> bool:
+        """Soft comparison between two Invoice objects.
+
+        Two invoices are considered equal when all strict fields match (client,
+        invoice_id, payments, status, created_on and anulated_on dates) and the
+        `total` and `taxes_values` differences are within the provided
+        percentage tolerances.
+
+        Parameters
+        ----------
+        other : Invoice
+            Invoice to compare with.
+        total_tolerance_pct : float
+            Allowed percentage difference for the `total` field (e.g. 1.0 = 1%).
+        taxes_tolerance_pct : float
+            Allowed percentage difference for each tax value in `taxes_values`.
+
+        Returns
+        -------
+        bool
+            True if invoices are considered equal under the tolerances.
+        """
+        if not isinstance(other, Invoice):
+            return False
+
+        # Strict comparisons for identity-like fields (compare client, id and status).
+        if (
+            self.client.document_number != other.client.document_number
+            or self.invoice_id != other.invoice_id
+            or self.status != other.status
+        ):
+            return False
+
+        # Date-only comparison for created_on
+        if self.created_on.date() != other.created_on.date():
+            return False
+
+        # Date-only comparison for anulated_on (handle None)
+        if (self.anulated_on is None) != (other.anulated_on is None):
+            return False
+        if self.anulated_on is not None and other.anulated_on is not None:
+            if self.anulated_on.date() != other.anulated_on.date():
+                return False
+
+        # Helper for percent-based tolerance comparison
+        def within_pct(a: float, b: float, pct: float) -> bool:
+            if pct <= 0.0:
+                return a == b
+            # use the larger magnitude as denominator to be conservative
+            denom = max(abs(a), abs(b), 1e-9)
+            return abs(a - b) <= denom * (pct / 100.0)
+
+        # Compare totals with tolerance
+        if not within_pct(self.total, other.total, total_tolerance_pct):
+            return False
+
+        # Compare total paid amounts (sum of payments) within the same tolerance.
+        paid_self = sum(p.value for p in self.payments)
+        paid_other = sum(p.value for p in other.payments)
+        if not within_pct(paid_self, paid_other, total_tolerance_pct):
+            return False
+
+        # Compare taxes_values with tolerance: consider union of keys
+        taxes_keys = set(self.taxes_values.keys()) | set(other.taxes_values.keys())
+        for key in taxes_keys:
+            val1 = self.taxes_values.get(key, 0.0)
+            val2 = other.taxes_values.get(key, 0.0)
+            if not within_pct(val1, val2, taxes_tolerance_pct):
+                return False
+
+        return True

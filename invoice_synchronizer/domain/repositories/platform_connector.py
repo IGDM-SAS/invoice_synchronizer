@@ -14,6 +14,10 @@ class PlatformConnector(ABC):
         """Get clients."""
 
     @abstractmethod
+    def get_clients_by_pattern(self, id_pattern: str) -> List[User]:
+        """Get clients by pattern."""
+
+    @abstractmethod
     def create_client(self, client: User) -> None:
         """Create client."""
 

@@ -26,3 +26,4 @@ invoices_error.json
 notebooks/
 .ipynb_checkpoints/
 pyrightconfig.json
+ondemand_upload.py

@@ -197,14 +197,3 @@ class InvoiceSynchronizer:
         return self.updater.update_invoices(
             process_report=process_specific_invoices, iterations=0
         )
-
-
-if __name__ == "__main__":
-    synchronizer = InvoiceSynchronizer()
-
-    # result_products = synchronizer.updater.update_products()
-    result_clients = synchronizer.updater.update_clients()
-    init_date_test = datetime(2026, 5, 1)
-    end_date_test = datetime(2026, 5, 4)
-    result_invoices = synchronizer.update_invoices(init_date_test, end_date_test, 1)
-    print("Finished")
