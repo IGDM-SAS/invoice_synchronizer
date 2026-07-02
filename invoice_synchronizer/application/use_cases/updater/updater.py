@@ -210,9 +210,9 @@ class Updater:
             self.logger.info("Fetching invoices from %s to %s", init_date, end_date)
             self.logger.info("Getting invoices from source platform")
             ref_invoices = self.source_client.get_invoices(init_date, end_date)
+            
             self.logger.info("Getting invoices from target platform")
             unchecked_invoices = self.target_client.get_invoices(init_date, end_date)
-
             # get missing and outdated clients
             (
                 missing_invoices,
@@ -221,6 +221,15 @@ class Updater:
             ) = get_missing_outdated_invoices(ref_invoices, unchecked_invoices)
         else:
             raise ValueError("Must provide init_date and end_date or specific invoices to process")
+
+        self.logger.info(f"""
+        \rFetched {len(ref_invoices)} invoices from source platform between {init_date} and {end_date}.
+        \rTotal sold: {sum(invoice.total for invoice in ref_invoices if invoice.anulated_on is None)}.
+        \rTotal annulled: {sum(invoice.total for invoice in ref_invoices if invoice.anulated_on is not None)}.
+
+        \rMissing invoices: {len(missing_invoices)}.
+        \rOutdated invoices: {len(outdated_invoices)}.
+        """)
 
         if len(missing_invoices) + len(outdated_invoices) == 0:
             self.logger.info("All Invoices already updated.")
@@ -241,6 +250,20 @@ class Updater:
             len(outdated_invoices),
         )
 
+        for invoice in tqdm(missing_invoices, desc="Creating invoices"):
+            try:
+                self.target_client.create_invoice(invoice)
+                finished_invoices.append(invoice)
+            except Exception as error:
+                errors.append(
+                    DetectedError(
+                        type_op=OperationType.CREATING,
+                        error=str(error),
+                        error_date=datetime.now(),
+                        failed_model=invoice,
+                    )
+                )
+
         for invoice in tqdm(outdated_invoices, desc="Updating invoices"):
             try:
                 self.target_client.update_invoice(invoice)
@@ -255,19 +278,6 @@ class Updater:
                     )
                 )
 
-        for invoice in tqdm(missing_invoices, desc="Creating invoices"):
-            try:
-                self.target_client.create_invoice(invoice)
-                finished_invoices.append(invoice)
-            except Exception as error:
-                errors.append(
-                    DetectedError(
-                        type_op=OperationType.CREATING,
-                        error=str(error),
-                        error_date=datetime.now(),
-                        failed_model=invoice,
-                    )
-                )
 
         process_report = ProcessReport(
             synchronization_type=synchronization_type,
@@ -288,6 +298,9 @@ class Updater:
         iterations: int = 0,
     ) -> ProcessReport:
         """Update invoices making iterations."""
+        products_report = self.update_products()
+        if len(products_report.errors) > 0:
+            raise ValueError("There are errors updating products. Please fix them before updating invoices.")
         self.logger.info("Updating invoices")
         if iterations < 0:
             raise ValueError("Iterations must be greater than or equal to 0")

@@ -616,6 +616,12 @@ class SiigoConnector(PlatformConnector):
                 invoice.payments[0].value += round(fix_payment, 2)
                 invoice.total = round(payment, 2)
                 return self.create_invoice(invoice, 1)
+            elif "customer doesn't exist" in response.json()["Errors"][0]["Message"]:
+                if retry_count >= 1:
+                    raise UploadError(f"Can't create invoice\n {response.text}")
+                user = invoice.client
+                self.create_client(user)
+                return self.create_invoice(invoice, 1)
             else:
                 raise UploadError(f"Can't create invoice\n {response.text}")
 
