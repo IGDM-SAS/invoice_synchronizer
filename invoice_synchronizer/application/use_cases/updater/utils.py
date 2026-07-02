@@ -128,7 +128,7 @@ def get_missing_outdated_invoices(
 
         unchecked_invoice: Invoice = list(filter(filter_outdated_invoice, unchecked_invoices))[0]
 
-        if ref_invoice != unchecked_invoice:
+        if not ref_invoice.equals_soft(unchecked_invoice, 1, 1):
             outdated_invoices.append((ref_invoice))
 
     return (missing_invoices, outdated_invoices, must_be_deleted_invoices)
