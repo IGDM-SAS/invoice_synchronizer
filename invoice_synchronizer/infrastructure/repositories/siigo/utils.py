@@ -23,7 +23,11 @@ from invoice_synchronizer.infrastructure.repositories.utils import (
 def user_to_siigo_payload(client: User, contacts: Optional[Any] = None) -> Dict[str, Any]:
     """Convert User model to Siigo payload."""
     full_name = client.name.split(" ") + (client.last_name.split(" ") if client.last_name else [""])
-
+    # sanitize: extract ASCII alphanumeric words from combined name parts
+    parts = re.findall(r"[0-9A-Za-z]+", " ".join(full_name))
+    if not parts:
+        parts = re.findall(r"[0-9A-Za-z]+", client.name) or ["."]
+    full_name = parts
     name, last_name = [full_name[0].strip(), " ".join(full_name[1:])]
     last_name = last_name if len(last_name) > 0 else "."
     last_name = last_name[0:50].strip()

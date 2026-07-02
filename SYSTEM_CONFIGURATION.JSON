@@ -6,44 +6,24 @@
             "siigo_id": 3025
         },
         {
-            "pirpos_id": "Tarjeta débito",
-            "system_id": "Transferencia bancaria",
-            "siigo_id": 3027
+            "pirpos_id": "Link de pago",
+            "system_id": "Link de pago",
+            "siigo_id": 12023
         },
         {
-            "pirpos_id": "Transferencia bancaria",
-            "system_id": "Transferencia bancaria",
-            "siigo_id": 3027
+            "pirpos_id": "Rappi",
+            "system_id": "Rappi",
+            "siigo_id": 8434
         },
         {
             "pirpos_id": "Tarjeta crédito",
-            "system_id": "Transferencia bancaria",
-            "siigo_id": 3027
-        },
-        {
-            "pirpos_id": "Transferencia bancaria",
             "system_id": "Transferencia bancaria",
             "siigo_id": 8434
         },
         {
             "pirpos_id": "Transferencia bancaria",
             "system_id": "Transferencia bancaria",
-            "siigo_id": 7300
-        },
-        {
-            "pirpos_id": "Domicilio",
-            "system_id": "Domicilio",
-            "siigo_id": 3025
-        },
-        {
-            "pirpos_id": "Rappi",
-            "system_id": "Rappi",
-            "siigo_id": 7325
-        },
-        {
-            "pirpos_id": "Link de pago",
-            "system_id": "Link de pago",
-            "siigo_id": 12023
+            "siigo_id": 8434
         }
     ],
     "taxes": [
@@ -61,24 +41,6 @@
         }
     ],
     "prefixes": [
-        {
-            "system_id": "LL",
-            "pirpos_id": "LL",
-            "siigo_id": 13136,
-            "siigo_code": 1
-        },
-        {
-            "system_id": "LL",
-            "pirpos_id": "LL.",
-            "siigo_id": 13136,
-            "siigo_code": 1
-        },
-        {
-            "system_id": "",
-            "pirpos_id": "",
-            "siigo_id": 27233,
-            "siigo_code": 3
-        },
         {
             "system_id": "FVE",
             "pirpos_id": "FVE",

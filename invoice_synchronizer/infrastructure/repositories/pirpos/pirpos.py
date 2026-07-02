@@ -1,6 +1,6 @@
 """PirPos client."""
 
-from typing import List
+from typing import List, Optional
 import json
 from logging import Logger
 import logging
@@ -80,13 +80,32 @@ class PirposConnector(PlatformConnector):
 
         return access_token
 
-    def get_clients(self) -> List[User]:
-        """Get pirpos clients.
+    def _get_clients(self, pattern_id: Optional[str]=None) -> List[User]:
+        """Retrieve clients from the PirPos API.
 
         Parameters
         ----------
-        batch_clients : int, optional
-            batch used to download clients, by default 200
+        pattern_id : Optional[str], optional
+            Pattern used to filter clients by document number. If omitted,
+            all clients are retrieved using pagination.
+
+        Returns
+        -------
+        List[User]
+            List of unique `User` instances. When multiple records share the same
+            document number, the record with the most recent `modifiedOn` is kept.
+
+        Raises
+        ------
+        FetchDataError
+            If any HTTP request fails or the response does not contain the expected
+            data.
+
+        Notes
+        -----
+        - Normalizes the `phone` field by removing spaces and truncating to 10 digits.
+        - Skips clients without a document number.
+        - Appends the configured `default_user` from `PirposConfig` at the end of the list.
         """
         page = 0
         clients_by_id = defaultdict(list)
@@ -99,7 +118,7 @@ class PirposConnector(PlatformConnector):
         while True:
             url = (
                 "https://api.pirpos.com/clients?pagination=true"
-                f"&limit={self.__batch_size}&page={page}&clientData=&"
+                f"&limit={self.__batch_size}&page={page}&clientData={pattern_id if pattern_id else ''}&"
             )
 
             response = requests.request(
@@ -149,6 +168,32 @@ class PirposConnector(PlatformConnector):
             clients.append(most_recent_client)
         clients.append(self.__default_user)
         return clients
+
+    
+    def get_clients(self) -> List[User]:
+        """Get pirpos clients.
+
+        Parameters
+        ----------
+        batch_clients : int, optional
+            batch used to download clients, by default 200
+        """
+        return self._get_clients()
+
+    def get_clients_by_pattern(self, id_pattern: str) -> List[User]:
+        """Get pirpos clients by pattern.
+
+        Parameters
+        ----------
+        id_pattern : str
+            pattern to filter clients by document number
+
+        Returns
+        -------
+        List[User]
+            List of clients matching the pattern
+        """
+        return self._get_clients(pattern_id=id_pattern)
 
     def create_client(self, client: User) -> None:
         """Create a client on pirpos.
@@ -303,7 +348,7 @@ class PirposConnector(PlatformConnector):
                 raise FetchDataError("Can't download invoices per client from pirpos")
             data = response.json()
 
-            invoices_per_client.extend(define_pirpos_invoices(data, self.__configuration, clients))
+            invoices_per_client.extend(define_pirpos_invoices(data, self.__configuration, clients, self._get_clients))
             pbar.update(len(data))
             if time2 >= end_day:
                 break

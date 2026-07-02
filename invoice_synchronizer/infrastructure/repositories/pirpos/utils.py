@@ -1,7 +1,7 @@
 """Utils used by clients."""
 
-from typing import Optional, Dict, Any, List
-from datetime import datetime
+from typing import Optional, Dict, Any, List, Callable
+from datetime import datetime, timedelta
 from invoice_synchronizer.domain import (
     User,
     Product,
@@ -120,6 +120,7 @@ def define_pirpos_invoices(
     data: List[Dict[str, Any]],
     system_parameters: SystemParameters,
     clients: List[User],
+    fall_back_get_clients: Callable[[str], List[User]],
 ) -> List[Invoice]:
 
     invoices: List[Invoice] = []
@@ -127,10 +128,17 @@ def define_pirpos_invoices(
         try:
             # select client
             client_document = int(invoice_info["client"]["document"])
-            client = filter_client_by_document(clients, client_document)
+            try:
+                client = filter_client_by_document(clients, client_document)
+            except ValueError:
+                # If the client is not found in the provided list, fetch clients from the platform
+                clients_from_platform = fall_back_get_clients(str(client_document))
+                client = filter_client_by_document(clients_from_platform, client_document)
 
             created_time = datetime.strptime(invoice_info["createdOn"], "%Y-%m-%dT%H:%M:%S.%f%z")
+            created_time = created_time - timedelta(hours=5)
             anulated_time = datetime.strptime(invoice_info["modifiedOn"], "%Y-%m-%dT%H:%M:%S.%f%z")
+            anulated_time = anulated_time - timedelta(hours=5)
             invoice_prefix = invoice_info["invoicePrefix"]
             invoice_number = invoice_info["seq"]
             invoice_id = InvoiceId(prefix=invoice_prefix, number=invoice_number)
