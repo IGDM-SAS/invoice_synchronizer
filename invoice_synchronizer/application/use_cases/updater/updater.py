@@ -201,6 +201,7 @@ class Updater:
         iterations = process_specific_invoices.iterations + 1 if process_specific_invoices else 1
         errors: List[DetectedError] = []
         finished_invoices: List[Invoice] = []
+        deleted_invoices: List[Invoice] = []
 
         if process_specific_invoices:
             missing_invoices, outdated_invoices, ref_invoices = get_failed_invoices(
@@ -217,7 +218,7 @@ class Updater:
             (
                 missing_invoices,
                 outdated_invoices,
-                _,
+                deleted_invoices,
             ) = get_missing_outdated_invoices(ref_invoices, unchecked_invoices)
         else:
             raise ValueError("Must provide init_date and end_date or specific invoices to process")
@@ -229,7 +230,16 @@ class Updater:
 
         \rMissing invoices: {len(missing_invoices)}.
         \rOutdated invoices: {len(outdated_invoices)}.
+        \rDeleted invoices (in target, not in source): {len(deleted_invoices)}.
         """)
+
+        if deleted_invoices:
+            self.logger.warning(
+                "Invoices deleted from source but still in target: %s",
+                ", ".join(
+                    f"{i.invoice_id.prefix}{i.invoice_id.number}" for i in deleted_invoices
+                ),
+            )
 
         if len(missing_invoices) + len(outdated_invoices) == 0:
             self.logger.info("All Invoices already updated.")
