@@ -7,8 +7,12 @@ A library used to synchronize different business systems
 Invoice Synchronizer is a **library** designed to synchronize invoices and related data between two business systems. The library provides a flexible architecture that allows data to flow seamlessly from a source platform to a destination platform.
 
 **Current Implementation:**
-- **Source**: Loggro (Point of sale system)
+- **Source**: Loggro (formerly PirPos, point-of-sale system)
 - **Destination**: SIIGO (Electronic billing system)
+
+> **Compatibility note:** The source platform was originally named PirPos and later migrated to
+> Loggro. Configuration keys, environment variables, and internal mappings retain the `PIRPOS`
+> name for backward compatibility.
 
 **Extensible Design:**
 Thanks to its clean architecture implementation, **other clients can be easily integrated**. The synchronization flow remains the same regardless of the platforms involved - simply implement the `PlatformConnector` interface for your desired system and the library will handle the rest.
@@ -29,7 +33,7 @@ The project implements **Clean Architecture** with the following layers:
 ## 🚀 Installation
 
 ### Prerequisites
-- Python 3.10
+- Python 3.11
 - Poetry 1.8.3 (dependency manager)
 
 ### Install the project
@@ -62,7 +66,7 @@ Create a `.env` file in the project root with the following variables:
 #### Loggro Variables
 ```bash
 # Loggro credentials
-PIRPOS_USERNAME=your_email@example.com
+PIRPOS_USER_NAME=your_email@example.com
 PIRPOS_PASSWORD=your_pirpos_password
 
 # Loggro configuration
@@ -73,7 +77,7 @@ PIRPOS_TIMEOUT=30
 #### SIIGO Variables
 ```bash
 # SIIGO credentials
-SIIGO_USERNAME=your_siigo_username
+SIIGO_USER_NAME=your_siigo_username
 SIIGO_ACCESS_KEY=your_siigo_access_key
 ```
 
