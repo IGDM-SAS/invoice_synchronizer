@@ -43,7 +43,7 @@ class SiigoConnector(PlatformConnector):
         self.__siigo_username = siigo_config.siigo_username
         self.__siigo_access_key = siigo_config.siigo_access_key
         self.__configuration = siigo_config.system_mapping
-        self.__page_size = 200
+        self.__page_size = 800
         self.__timeout = siigo_config.timeout
         self.default_client = siigo_config.default_user
         self.retentions = siigo_config.retentions
@@ -397,27 +397,31 @@ class SiigoConnector(PlatformConnector):
         if not response.ok:
             raise UpdateError(f"Can't update product\n {response.text}")
 
-    def _get_credit_note(self, init_day: datetime, end_day: datetime) -> List[Dict[str, Any]]:
+    def _get_credit_note(
+        self, init_day: Optional[datetime] = None, end_day: Optional[datetime] = None
+    ) -> List[Dict[str, Any]]:
         """Load Siigo credit notes.
 
         Parameters
         ----------
-        init_day : datetime
-            Start date for credit notes search
-        end_day : datetime
-            End date for credit notes search
+        init_day : Optional[datetime]
+            Optional start date for credit notes search.
+        end_day : Optional[datetime]
+            Optional end date for credit notes search.
 
         Returns
         -------
         List[Dict[str, Any]]
             List with Siigo credit notes data
         """
-        day1 = init_day.strftime("%Y-%m-%d")
-        day2 = (end_day + timedelta(days=1)).strftime("%Y-%m-%d")
-        url = (
-            f"https://api.siigo.com/v1/credit-notes?page_size={self.__page_size}&created_end={day2}"
-            f"&created_start={day1}"
-        )
+        if (init_day is None) != (end_day is None):
+            raise ValueError("Both credit note date bounds must be provided together.")
+
+        url = f"https://api.siigo.com/v1/credit-notes?page_size={self.__page_size}"
+        if init_day is not None and end_day is not None:
+            day1 = init_day.strftime("%Y-%m-%d")
+            day2 = (end_day + timedelta(days=1)).strftime("%Y-%m-%d")
+            url += f"&created_end={day2}&created_start={day1}"
         headers = {
             "Authorization": self.__siigo_access_token,
             "Content-Type": "application/json",
@@ -458,7 +462,8 @@ class SiigoConnector(PlatformConnector):
             credit_notes.extend(data)
 
             # Check for next page
-            next_link = response_ob.get("_links", {}).get("next", {}).get("href")
+            links = response_ob.get("_links", response_ob.get("__links", {}))
+            next_link = links.get("next", {}).get("href")
             if len(data) == 0 or next_link is None:
                 break
             else:
@@ -466,7 +471,76 @@ class SiigoConnector(PlatformConnector):
 
         return credit_notes
 
-    def get_invoices(self, init_day: datetime, end_day: datetime) -> List[Invoice]:
+    def _get_invoice_by_id(self, invoice_id: str, clients: List[User]) -> Invoice:
+        """Load one Siigo invoice by its internal ID."""
+        url = f"https://api.siigo.com/v1/invoices/{invoice_id}"
+        headers = {
+            "Authorization": self.__siigo_access_token,
+            "Content-Type": "application/json",
+            "Partner-Id": "DesarrolloPropio",
+        }
+        self._rate_limiter.wait_if_needed()
+        response = requests.request(
+            "GET",
+            url,
+            headers=headers,
+            timeout=self.__timeout,
+        )
+        if not response.ok:
+            raise FetchDataError(
+                f"Can't download Siigo invoice {invoice_id}\n {response.text}"
+            )
+
+        invoices = define_siigo_invoice(
+            system_parameters=self.__configuration,
+            data=[response.json()],
+            clients=clients,
+        )
+        try:
+            return invoices[invoice_id]
+        except KeyError as error:
+            raise FetchDataError(
+                f"Siigo invoice response did not contain ID {invoice_id}."
+            ) from error
+
+    def _get_anulated_invoices(
+        self,
+        init_day: datetime,
+        end_day: datetime,
+        clients: List[User],
+        credit_note_data: List[Dict[str, Any]],
+        credit_note_doc_name_acentry: Dict[str, str],
+    ) -> List[Invoice]:
+        """Load all credit-note invoices, retaining only those in the requested range."""
+        invoices_by_id: Dict[str, Invoice] = {}
+        for credit_note in credit_note_data:
+            invoice_id = credit_note.get("invoice", {}).get("id")
+            if not isinstance(invoice_id, str):
+                raise FetchDataError("Siigo credit note does not contain an invoice ID.")
+            if invoice_id in invoices_by_id:
+                continue
+            invoice = self._get_invoice_by_id(invoice_id, clients)
+            if init_day.date() <= invoice.created_on.date() <= end_day.date():
+                invoices_by_id[invoice_id] = invoice
+
+        invoices, invoice_id_to_credit_note_id, domain_id_to_credit_note_name = (
+            update_invoices_with_credit_notes(
+                invoices_by_id, credit_note_data, credit_note_doc_name_acentry
+            )
+        )
+        self.__invoice_id_to_credit_note_acentry_id.update(invoice_id_to_credit_note_id)
+        self.invoice_id_to_credit_note_name.update(domain_id_to_credit_note_name)
+        self.__invoice_number_to_siigo_id.update(
+            get_invoice_number_2_siigo_id_mapping(invoices_by_id)
+        )
+        return invoices
+
+    def get_invoices(
+        self,
+        init_day: datetime,
+        end_day: datetime,
+        status: Optional[InvoiceStatus] = None,
+    ) -> List[Invoice]:
         """Load Siigo invoices.
 
         Returns
@@ -474,13 +548,24 @@ class SiigoConnector(PlatformConnector):
           List[Invoice]
           List with Siigo invoices
         """
+        if status not in (None, InvoiceStatus.PAID, InvoiceStatus.ANULATED):
+            raise ValueError(f"Status {status} is not supported by Siigo.")
+
         clients = self.get_clients()
+        if status == InvoiceStatus.ANULATED:
+            return self._get_anulated_invoices(
+                init_day,
+                end_day,
+                clients,
+                self._get_credit_note(),
+                {},
+            )
+
         credit_note_end_date = end_day + timedelta(days=self.credit_note_forward_days)
         credit_note_data = self._get_credit_note(init_day, credit_note_end_date)
         credit_note_doc_name_acentry = self.get_credit_note_acentryid(
             init_day, credit_note_end_date
         )
-
         day1 = init_day.strftime("%Y-%m-%d")
         day2 = (end_day + timedelta(days=1)).strftime("%Y-%m-%d")
         url = (
@@ -535,6 +620,10 @@ class SiigoConnector(PlatformConnector):
         )
         self.__invoice_id_to_credit_note_acentry_id.update(invoice_id_to_credit_note_id)
         self.invoice_id_to_credit_note_name.update(domain_id_to_credit_note_name)
+        if status == InvoiceStatus.PAID:
+            return [
+                invoice for invoice in invoices if invoice.status == InvoiceStatus.PAID
+            ]
         return invoices
 
     def get_credit_note_acentryid(self, init_day: datetime, end_day: datetime) -> Dict[str, str]:
