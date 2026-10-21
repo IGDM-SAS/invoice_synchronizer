@@ -1,9 +1,9 @@
-"""PirPos client."""
+"""Platform connector contract."""
 
-from typing import List
+from typing import List, Optional
 from abc import ABC, abstractmethod
 from datetime import datetime
-from invoice_synchronizer.domain.models import User, Product, Invoice
+from invoice_synchronizer.domain.models import User, Product, Invoice, InvoiceStatus
 
 
 class PlatformConnector(ABC):
@@ -38,7 +38,12 @@ class PlatformConnector(ABC):
         """Update product."""
 
     @abstractmethod
-    def get_invoices(self, init_day: datetime, end_day: datetime) -> List[Invoice]:
+    def get_invoices(
+        self,
+        init_day: datetime,
+        end_day: datetime,
+        status: Optional[InvoiceStatus] = None,
+    ) -> List[Invoice]:
         """Get invoices.
 
         Parameters
@@ -47,6 +52,8 @@ class PlatformConnector(ABC):
             initial time to download invoices. year-month-day
         end_day : datetime
             end time to download invoices year-month-day
+        status : Optional[InvoiceStatus]
+            Status to filter invoices by. If omitted, returns all invoices in the range.
 
         Returns
         -------

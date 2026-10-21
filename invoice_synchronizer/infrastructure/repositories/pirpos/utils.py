@@ -137,8 +137,6 @@ def define_pirpos_invoices(
 
             created_time = datetime.strptime(invoice_info["createdOn"], "%Y-%m-%dT%H:%M:%S.%f%z")
             created_time = created_time - timedelta(hours=5)
-            anulated_time = datetime.strptime(invoice_info["modifiedOn"], "%Y-%m-%dT%H:%M:%S.%f%z")
-            anulated_time = anulated_time - timedelta(hours=5)
             invoice_prefix = invoice_info["invoicePrefix"]
             invoice_number = invoice_info["seq"]
             invoice_id = InvoiceId(prefix=invoice_prefix, number=invoice_number)
@@ -180,6 +178,12 @@ def define_pirpos_invoices(
             )
             status_type = mapping["system_id"]
             status = InvoiceStatus(status_type)
+
+            if status == InvoiceStatus.ANULATED:
+                anulated_time = datetime.strptime(invoice_info["canceled"]["date"], "%Y-%m-%dT%H:%M:%S.%f%z")
+                anulated_time = anulated_time - timedelta(hours=5)
+            else:
+                anulated_time = None
 
             invoice_obj = Invoice(
                 client=client,

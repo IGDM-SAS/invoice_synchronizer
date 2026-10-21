@@ -355,7 +355,12 @@ class PirposConnector(PlatformConnector):
 
         return invoices_per_client
 
-    def get_invoices(self, init_day: datetime, end_day: datetime) -> List[Invoice]:
+    def get_invoices(
+        self,
+        init_day: datetime,
+        end_day: datetime,
+        status: Optional[InvoiceStatus] = None,
+    ) -> List[Invoice]:
         """Get invoices from pirpos.
 
         Parameters
@@ -364,20 +369,33 @@ class PirposConnector(PlatformConnector):
             initial time to download invoices. year-month-day
         end_day : datetime
             end time to download invoices year-month-day
+        status : Optional[InvoiceStatus]
+            Status to filter invoices by. If omitted, returns paid and annulled invoices.
 
         Returns
         -------
         List[Invoice]
             Pirpos invoices in a range of time
         """
+        if status not in (None, InvoiceStatus.PAID, InvoiceStatus.ANULATED):
+            raise ValueError(f"Status {status} is not supported by PirPos.")
+
         clients = self.get_clients()
 
         with tqdm(desc="Downloading invoices from Loggro", unit=" invoices") as pbar:
-            invoices_anulated = self.__get_invoices_by_status(
-                init_day, end_day, InvoiceStatus.ANULATED, clients, pbar
+            invoices_anulated = (
+                self.__get_invoices_by_status(
+                    init_day, end_day, InvoiceStatus.ANULATED, clients, pbar
+                )
+                if status in (None, InvoiceStatus.ANULATED)
+                else []
             )
-            invoices_paid = self.__get_invoices_by_status(
-                init_day, end_day, InvoiceStatus.PAID, clients, pbar
+            invoices_paid = (
+                self.__get_invoices_by_status(
+                    init_day, end_day, InvoiceStatus.PAID, clients, pbar
+                )
+                if status in (None, InvoiceStatus.PAID)
+                else []
             )
         all_invoices = invoices_paid + invoices_anulated
         return all_invoices

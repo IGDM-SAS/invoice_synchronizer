@@ -307,9 +307,9 @@ def update_invoices_with_credit_notes(
             continue
         invoice.anulated_on = credit_note_date
         invoice.status = InvoiceStatus.ANULATED
-        invoice_id_to_credit_acentry_id[invoice_id] = credit_note_doc_name_acentry[
-            credit_note["name"]
-        ]
+        credit_note_acentry_id = credit_note_doc_name_acentry.get(credit_note["name"])
+        if credit_note_acentry_id is not None:
+            invoice_id_to_credit_acentry_id[invoice_id] = credit_note_acentry_id
         domain_id_to_credit_note_name[invoice.invoice_id] = credit_note["name"]
     return list(invoices.values()), invoice_id_to_credit_acentry_id, domain_id_to_credit_note_name
 
